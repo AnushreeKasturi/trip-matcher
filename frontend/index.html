@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Trip Matcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1B2A28;
+    --sand: #F4EEE1;
+    --teal: #1B4B43;
+    --clay: #C15F3C;
+    --line: #DAD1BC;
+    --card-bg: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--sand);
+    color: var(--ink);
+  }
+  header {
+    padding: 2.5rem 2.5rem 1.5rem;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 2.2rem;
+    font-weight: 600;
+    margin: 0 0 0.35rem;
+  }
+  header p {
+    margin: 0;
+    max-width: 46ch;
+    color: #4B5B58;
+    font-size: 0.98rem;
+  }
+  main {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 0;
+    min-height: calc(100vh - 130px);
+  }
+  @media (max-width: 800px) {
+    main { grid-template-columns: 1fr; }
+  }
+  form {
+    padding: 2rem;
+    border-right: 1px solid var(--line);
+  }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin: 1.1rem 0 0.35rem;
+  }
+  label:first-of-type { margin-top: 0; }
+  input, select {
+    width: 100%;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--card-bg);
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: var(--ink);
+  }
+  input:focus, select:focus {
+    outline: 2px solid var(--teal);
+    outline-offset: 1px;
+  }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  button[type="submit"] {
+    margin-top: 1.75rem;
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--teal);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  button[type="submit"]:disabled { opacity: 0.6; cursor: default; }
+  button[type="submit"]:hover:not(:disabled) { background: #143a34; }
+
+  section.results { padding: 2rem 2.5rem; }
+  .status {
+    font-size: 0.9rem;
+    color: #4B5B58;
+    margin-bottom: 1rem;
+  }
+  .empty-state {
+    color: #4B5B58;
+    font-size: 0.95rem;
+    max-width: 42ch;
+  }
+  .cards { display: grid; gap: 1rem; }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 1.4rem 1.6rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+  .card:hover { border-color: var(--teal); }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+  }
+  .card-top h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin: 0;
+  }
+  .card-top .country { color: #4B5B58; font-size: 0.85rem; }
+  .cost { font-size: 1.15rem; font-weight: 600; color: var(--teal); white-space: nowrap; }
+  .savings { color: var(--clay); font-size: 0.88rem; font-weight: 500; margin-top: 0.25rem; }
+  .breakdown { font-size: 0.88rem; color: #4B5B58; margin-top: 0.6rem; }
+  .flight-meta { font-size: 0.85rem; color: #4B5B58; margin-top: 0.25rem; }
+  .reason {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--line);
+    display: none;
+  }
+  .card.expanded .reason { display: block; }
+  .book-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--teal);
+    text-decoration: none;
+    border-bottom: 1px solid var(--teal);
+  }
+  .skipped-note {
+    font-size: 0.82rem;
+    color: #8A7B5C;
+    margin-top: 1.5rem;
+  }
+  .error-box {
+    background: #FBEAE4;
+    border: 1px solid #E3B4A3;
+    color: #8C3B24;
+    padding: 0.9rem 1.1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    animation: shake 0.4s ease;
+  }
+
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+  @keyframes pulseDot {
+    0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes shake {
+    10%, 90% { transform: translateX(-1px); }
+    20%, 80% { transform: translateX(2px); }
+    30%, 50%, 70% { transform: translateX(-4px); }
+    40%, 60% { transform: translateX(4px); }
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  body {
+    background: radial-gradient(circle at 10% 0%, #FAF6EC 0%, var(--sand) 45%) fixed;
+  }
+
+  .vibe-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .vibe-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--card-bg);
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .vibe-chip:hover { border-color: var(--teal); transform: translateY(-1px); }
+  .vibe-chip:active { transform: translateY(0) scale(0.96); }
+  .vibe-chip.selected {
+    background: var(--teal);
+    border-color: var(--teal);
+    color: white;
+    box-shadow: 0 3px 10px rgba(27, 75, 67, 0.25);
+  }
+  .vibe-chips.shake { animation: shake 0.4s ease; }
+  .vibe-hint {
+    font-size: 0.78rem;
+    color: var(--clay);
+    margin-top: 0.4rem;
+    display: none;
+  }
+  .vibe-hint.visible { display: block; }
+
+  button[type="submit"] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, transform 0.08s ease;
+  }
+  button[type="submit"]:active:not(:disabled) { transform: scale(0.98); }
+  .btn-spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    margin-right: 0.55rem;
+    animation: spin 0.7s linear infinite;
+  }
+
+  .status-loading { display: inline-flex; align-items: center; gap: 0.6rem; }
+  .dot-loader { display: inline-flex; gap: 3px; }
+  .dot-loader span {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--teal);
+    animation: pulseDot 1.2s infinite ease-in-out both;
+  }
+  .dot-loader span:nth-child(2) { animation-delay: 0.15s; }
+  .dot-loader span:nth-child(3) { animation-delay: 0.3s; }
+
+  .skeleton-card {
+    height: 128px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: linear-gradient(90deg, #EFE9DA 0px, #FBF8EF 40px, #EFE9DA 80px);
+    background-size: 800px 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+  .skeleton-cards { display: grid; gap: 1rem; }
+
+  .card {
+    opacity: 0;
+    animation: fadeSlideUp 0.45s ease forwards;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .card:hover { border-color: var(--teal); transform: translateY(-3px); box-shadow: 0 10px 22px rgba(27,42,40,0.08); }
+
+  .rank-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    margin-bottom: 0.55rem;
+  }
+  .rank-badge.rank-0 { background: #E4EFE1; color: var(--teal); }
+  .rank-badge.rank-1, .rank-badge.rank-2 { background: #F1ECDD; color: #8A7B5C; }
+
+  .card-top .chevron {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    color: #8A9B97;
+    font-size: 0.75rem;
+  }
+  .card.expanded .chevron { transform: rotate(180deg); }
+
+  .reason {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease, padding-top 0.25s ease;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+  .reason > div { overflow: hidden; min-height: 0; }
+  .card.expanded .reason {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--line);
+  }
+
+  details.compare {
+    margin-top: 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card-bg);
+    overflow: hidden;
+  }
+  details.compare summary {
+    cursor: pointer;
+    padding: 0.85rem 1.1rem;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--teal);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  details.compare summary::-webkit-details-marker { display: none; }
+  details.compare summary::after {
+    content: "▾";
+    transition: transform 0.2s ease;
+    color: #8A9B97;
+  }
+  details.compare[open] summary::after { transform: rotate(180deg); }
+  .compare-table-wrap { overflow-x: auto; border-top: 1px solid var(--line); }
+  table.compare-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  table.compare-table th, table.compare-table td {
+    padding: 0.55rem 1.1rem;
+    text-align: left;
+    white-space: nowrap;
+  }
+  table.compare-table th {
+    color: #4B5B58;
+    font-weight: 500;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  table.compare-table tr + tr td { border-top: 1px solid var(--line); }
+  table.compare-table td.status-fit { color: var(--teal); font-weight: 500; }
+  table.compare-table td.status-over { color: var(--clay); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Trip Matcher</h1>
+  <p>Tell us your budget, your trip length, and your vibe. We'll search real flight and hotel prices across your options and rank what actually fits.</p>
+</header>
+
+<main>
+  <form id="search-form">
+    <label for="departure">Departure city (IATA code)</label>
+    <input id="departure" name="departure_id" placeholder="e.g. BLR" required />
+
+    <div class="row-2">
+      <div>
+        <label for="budget">Total budget</label>
+        <input id="budget" name="budget" type="number" min="1" placeholder="60000" required />
+      </div>
+      <div>
+        <label for="currency">Currency</label>
+        <select id="currency" name="currency">
+          <option value="INR" selected>₹ INR</option>
+          <option value="USD">$ USD</option>
+          <option value="EUR">€ EUR</option>
+          <option value="GBP">£ GBP</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div>
+        <label for="nights">Trip length (nights)</label>
+        <input id="nights" name="nights" type="number" min="1" max="30" placeholder="6" required />
+      </div>
+      <div>
+        <label for="outbound_date">Departure date</label>
+        <input id="outbound_date" name="outbound_date" type="date" min="" />
+      </div>
+    </div>
+
+    <label id="vibe-label">Vibe</label>
+    <div id="vibe-chips" class="vibe-chips" role="group" aria-labelledby="vibe-label"></div>
+    <div id="vibe-hint" class="vibe-hint">Pick a vibe to continue</div>
+
+    <button type="submit" id="submit-btn">Find my trips</button>
+  </form>
+
+  <section class="results">
+    <div id="status" class="status" style="display:none;"></div>
+    <div id="content">
+      <p class="empty-state">Fill in the form and we'll search flights and hotels across a curated shortlist of destinations for your chosen vibe — then rank the top 3 that fit your budget.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+const API_BASE = ""; // same-origin, since FastAPI serves this frontend too
+
+const form = document.getElementById("search-form");
+const submitBtn = document.getElementById("submit-btn");
+const statusEl = document.getElementById("status");
+const contentEl = document.getElementById("content");
+const vibeChipsEl = document.getElementById("vibe-chips");
+const vibeHintEl = document.getElementById("vibe-hint");
+const outboundDateEl = document.getElementById("outbound_date");
+const currencyEl = document.getElementById("currency");
+
+const CURRENCY_SYMBOLS = { INR: "₹", USD: "$", EUR: "€", GBP: "£" };
+function currencySymbol(code) {
+  return CURRENCY_SYMBOLS[code] || `${code} `;
+}
+
+// Local (not UTC) today, so the cutoff matches what the user sees on their clock.
+function todayLocalISO() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().split("T")[0];
+}
+outboundDateEl.min = todayLocalISO();
+
+const LAST_SEARCH_KEY = "tripMatcher:lastSearch";
+let pendingVibe = null;
+
+function restoreLastSearch() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(LAST_SEARCH_KEY) || "null");
+  } catch (e) {
+    return; // storage unavailable (private mode, etc.) — just skip
+  }
+  if (!saved) return;
+
+  if (saved.departure_id) document.getElementById("departure").value = saved.departure_id;
+  if (saved.budget) document.getElementById("budget").value = saved.budget;
+  if (saved.nights) document.getElementById("nights").value = saved.nights;
+  if (saved.currency && CURRENCY_SYMBOLS[saved.currency]) currencyEl.value = saved.currency;
+  if (saved.outbound_date && saved.outbound_date >= outboundDateEl.min) {
+    outboundDateEl.value = saved.outbound_date;
+  }
+  pendingVibe = saved.vibe || null;
+}
+
+// Fallback in case /api/vibes can't be reached (e.g. the backend isn't
+// running, or this file was opened directly as file:// instead of through
+// the server). Keeps the chips usable even then; submitting will still
+// fail with a clear error until the backend is actually up.
+const FALLBACK_VIBES = ["Beach", "Mountains", "City", "Nature"];
+
+const VIBE_ICONS = {
+  Beach: "🏖️", Mountains: "⛰️", City: "🏙️", Nature: "🌿",
+  Desert: "🏜️", Snow: "❄️", Islands: "🏝️", Adventure: "🧭",
+  Food: "🍜", Culture: "🏛️", Relax: "🌴",
+};
+
+let selectedVibe = null;
+
+function populateVibes(vibes) {
+  vibeChipsEl.innerHTML = "";
+  for (const vibe of vibes) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "vibe-chip";
+    chip.dataset.vibe = vibe;
+    chip.setAttribute("aria-pressed", "false");
+    chip.innerHTML = `<span>${VIBE_ICONS[vibe] || "✨"}</span><span>${vibe}</span>`;
+    chip.addEventListener("click", () => selectVibe(vibe));
+    vibeChipsEl.appendChild(chip);
+  }
+  if (pendingVibe && vibes.includes(pendingVibe)) {
+    selectVibe(pendingVibe);
+    pendingVibe = null;
+  }
+}
+
+function selectVibe(vibe) {
+  selectedVibe = vibe;
+  vibeHintEl.classList.remove("visible");
+  vibeChipsEl.querySelectorAll(".vibe-chip").forEach((chip) => {
+    const isSelected = chip.dataset.vibe === vibe;
+    chip.classList.toggle("selected", isSelected);
+    chip.setAttribute("aria-pressed", String(isSelected));
+  });
+}
+
+async function loadVibes() {
+  try {
+    const res = await fetch(`${API_BASE}/api/vibes`);
+    if (!res.ok) throw new Error(`Server responded ${res.status}`);
+    const data = await res.json();
+    populateVibes(data.vibes);
+  } catch (e) {
+    console.error("Could not load vibes from the backend:", e);
+    populateVibes(FALLBACK_VIBES);
+    statusEl.style.display = "block";
+    statusEl.innerHTML =
+      "Couldn't reach the backend at <code>/api/vibes</code> — is <code>uvicorn main:app</code> running, " +
+      "and are you viewing this via <code>http://localhost:8000</code> rather than opening the file directly? " +
+      "The vibe list below is a fallback; searches won't work until the server is reachable.";
+  }
+}
+restoreLastSearch();
+loadVibes();
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  if (!selectedVibe) {
+    vibeHintEl.classList.add("visible");
+    vibeChipsEl.classList.remove("shake");
+    void vibeChipsEl.offsetWidth; // restart animation
+    vibeChipsEl.classList.add("shake");
+    vibeChipsEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+
+  if (outboundDateEl.value && outboundDateEl.value < outboundDateEl.min) {
+    outboundDateEl.value = "";
+    outboundDateEl.focus();
+    return;
+  }
+
+  const payload = {
+    departure_id: document.getElementById("departure").value.trim().toUpperCase(),
+    budget: parseFloat(document.getElementById("budget").value),
+    nights: parseInt(document.getElementById("nights").value, 10),
+    vibe: selectedVibe,
+    outbound_date: document.getElementById("outbound_date").value || null,
+    currency: currencyEl.value,
+  };
+
+  try {
+    localStorage.setItem(LAST_SEARCH_KEY, JSON.stringify(payload));
+  } catch (e) { /* storage unavailable — not worth failing the search over */ }
+
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = `<span class="btn-spinner"></span>Searching...`;
+  statusEl.style.display = "block";
+  statusEl.innerHTML = `<span class="status-loading">Checking flights and hotels across your ${payload.vibe.toLowerCase()} shortlist<span class="dot-loader"><span></span><span></span><span></span></span></span>`;
+  contentEl.innerHTML = `<div class="skeleton-cards">
+    <div class="skeleton-card"></div>
+    <div class="skeleton-card"></div>
+    <div class="skeleton-card"></div>
+  </div>`;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Search failed (${res.status})`);
+    }
+
+    const data = await res.json();
+    renderResults(data, payload.budget, payload.currency);
+  } catch (err) {
+    statusEl.style.display = "none";
+    contentEl.innerHTML = `<div class="error-box">${escapeHtml(err.message)}</div>`;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Find my trips";
+  }
+});
+
+function renderResults(data, budget, currency) {
+  const { results, skipped, searched_count, search_error, considered } = data;
+  const symbol = currencySymbol(currency);
+
+  if (search_error) {
+    statusEl.style.display = "none";
+    contentEl.innerHTML = `<div class="error-box">${escapeHtml(search_error)}</div>`;
+    return;
+  }
+
+  if (results.length === 0) {
+    statusEl.style.display = "none";
+    contentEl.innerHTML = `
+      <div class="empty-state">
+        No destinations fit a ${symbol}${budget} budget out of ${searched_count} searched.
+        Try raising your budget or shortening the trip.
+      </div>
+      ${renderCompareTable(considered, symbol)}`;
+    return;
+  }
+
+  statusEl.textContent = `Found ${results.length} trip${results.length > 1 ? "s" : ""} that fit, out of ${searched_count} searched.`;
+
+  const RANK_LABELS = ["Best match", "Great fit", "Good fit"];
+
+  const cardsHtml = results.map((r, i) => `
+    <div class="card" data-index="${i}" style="animation-delay:${i * 0.08}s" tabindex="0" role="button" aria-expanded="false">
+      ${i < RANK_LABELS.length ? `<span class="rank-badge rank-${i}">${RANK_LABELS[i]}</span>` : ""}
+      <div class="card-top">
+        <div>
+          <h2>${escapeHtml(r.name)}</h2>
+          <div class="country">${escapeHtml(r.country)}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="cost" data-target="${r.total_cost}">${symbol}0</div>
+          <span class="chevron">▾</span>
+        </div>
+      </div>
+      <div class="savings">${symbol}${r.savings.toFixed(0)} under your budget</div>
+      <div class="breakdown">${escapeHtml(r.breakdown)}</div>
+      <div class="flight-meta">${escapeHtml(r.flight_type)} · ${escapeHtml(r.flight_duration)} total</div>
+      <div class="reason"><div>
+        ${escapeHtml(r.reason)}
+        ${renderBookingLink(r.booking_options)}
+      </div></div>
+    </div>
+  `).join("");
+
+  const skippedHtml = skipped && skipped.length
+    ? `<div class="skipped-note">Skipped ${skipped.length} destination${skipped.length > 1 ? "s" : ""} with no available data: ${skipped.map(escapeHtml).join(", ")}</div>`
+    : "";
+
+  contentEl.innerHTML = `<div class="cards">${cardsHtml}</div>${skippedHtml}${renderCompareTable(considered, symbol)}`;
+
+  contentEl.querySelectorAll(".card").forEach((card) => {
+    const toggle = () => {
+      const expanded = card.classList.toggle("expanded");
+      card.setAttribute("aria-expanded", String(expanded));
+    };
+    card.addEventListener("click", toggle);
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+    });
+  });
+
+  contentEl.querySelectorAll(".cost[data-target]").forEach((el) => animateCount(el, symbol));
+}
+
+function animateCount(el, symbol) {
+  const target = parseFloat(el.dataset.target) || 0;
+  const duration = 600;
+  const start = performance.now();
+  function tick(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = `${symbol}${Math.round(target * eased)}`;
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function renderCompareTable(considered, symbol) {
+  if (!considered || considered.length === 0) return "";
+
+  const rows = considered.map((d) => {
+    const statusClass = d.fits ? "status-fit" : "status-over";
+    const statusText = d.fits
+      ? `Fits · saves ${symbol}${Math.abs(d.diff).toFixed(0)}`
+      : `Over by ${symbol}${Math.abs(d.diff).toFixed(0)}`;
+    return `
+      <tr>
+        <td>${escapeHtml(d.name)}</td>
+        <td>${escapeHtml(d.country)}</td>
+        <td>${symbol}${d.total_cost.toFixed(0)}</td>
+        <td class="${statusClass}">${statusText}</td>
+        <td>${escapeHtml(d.flight_type)} · ${escapeHtml(d.flight_duration)}</td>
+      </tr>`;
+  }).join("");
+
+  return `
+    <details class="compare">
+      <summary>Compare all ${considered.length} destination${considered.length > 1 ? "s" : ""} searched</summary>
+      <div class="compare-table-wrap">
+        <table class="compare-table">
+          <thead>
+            <tr><th>Destination</th><th>Country</th><th>Total cost</th><th>Status</th><th>Flight</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </details>`;
+}
+
+function renderBookingLink(bookingOptions) {
+  if (!bookingOptions || bookingOptions.length === 0) return "";
+  const first = bookingOptions[0];
+  const url = first?.together?.booking_request?.url || first?.booking_request?.url;
+  if (!url) return "";
+  return `<br/><a class="book-link" href="${encodeURI(url)}" target="_blank" rel="noopener">Book this flight →</a>`;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str ?? "";
+  return div.innerHTML;
+}
+</script>
+
+</body>
+</html>

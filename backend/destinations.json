@@ -1,0 +1,46 @@
+{
+  "Beach": [
+    {"name": "Goa", "country": "India", "arrival_id": "GOI", "hotel_query": "Goa, India"},
+    {"name": "Bali", "country": "Indonesia", "arrival_id": "DPS", "hotel_query": "Bali, Indonesia"},
+    {"name": "Phuket", "country": "Thailand", "arrival_id": "HKT", "hotel_query": "Phuket, Thailand"},
+    {"name": "Maldives", "country": "Maldives", "arrival_id": "MLE", "hotel_query": "Male, Maldives"},
+    {"name": "Zanzibar", "country": "Tanzania", "arrival_id": "ZNZ", "hotel_query": "Zanzibar, Tanzania"},
+    {"name": "Da Nang", "country": "Vietnam", "arrival_id": "DAD", "hotel_query": "Da Nang, Vietnam"},
+    {"name": "Colombo", "country": "Sri Lanka", "arrival_id": "CMB", "hotel_query": "Colombo, Sri Lanka"},
+    {"name": "Langkawi", "country": "Malaysia", "arrival_id": "LGK", "hotel_query": "Langkawi, Malaysia"},
+    {"name": "Boracay", "country": "Philippines", "arrival_id": "MPH", "hotel_query": "Boracay, Philippines"},
+    {"name": "Krabi", "country": "Thailand", "arrival_id": "KBV", "hotel_query": "Krabi, Thailand"}
+  ],
+  "Mountains": [
+    {"name": "Manali", "country": "India", "arrival_id": "KUU", "hotel_query": "Manali, India"},
+    {"name": "Leh", "country": "India", "arrival_id": "IXL", "hotel_query": "Leh, India"},
+    {"name": "Pokhara", "country": "Nepal", "arrival_id": "PKR", "hotel_query": "Pokhara, Nepal"},
+    {"name": "Paro", "country": "Bhutan", "arrival_id": "PBH", "hotel_query": "Paro, Bhutan"},
+    {"name": "Shimla", "country": "India", "arrival_id": "SLV", "hotel_query": "Shimla, India"},
+    {"name": "Kathmandu", "country": "Nepal", "arrival_id": "KTM", "hotel_query": "Kathmandu, Nepal"},
+    {"name": "Darjeeling", "country": "India", "arrival_id": "IXB", "hotel_query": "Darjeeling, India"},
+    {"name": "Gangtok", "country": "India", "arrival_id": "PYG", "hotel_query": "Gangtok, India"},
+    {"name": "Chiang Mai", "country": "Thailand", "arrival_id": "CNX", "hotel_query": "Chiang Mai, Thailand"}
+  ],
+  "City": [
+    {"name": "Singapore", "country": "Singapore", "arrival_id": "SIN", "hotel_query": "Singapore"},
+    {"name": "Dubai", "country": "UAE", "arrival_id": "DXB", "hotel_query": "Dubai, UAE"},
+    {"name": "Bangkok", "country": "Thailand", "arrival_id": "BKK", "hotel_query": "Bangkok, Thailand"},
+    {"name": "Tokyo", "country": "Japan", "arrival_id": "NRT", "hotel_query": "Tokyo, Japan"},
+    {"name": "Seoul", "country": "South Korea", "arrival_id": "ICN", "hotel_query": "Seoul, South Korea"},
+    {"name": "Kuala Lumpur", "country": "Malaysia", "arrival_id": "KUL", "hotel_query": "Kuala Lumpur, Malaysia"},
+    {"name": "Hong Kong", "country": "Hong Kong", "arrival_id": "HKG", "hotel_query": "Hong Kong"},
+    {"name": "Istanbul", "country": "Turkey", "arrival_id": "IST", "hotel_query": "Istanbul, Turkey"},
+    {"name": "Ho Chi Minh City", "country": "Vietnam", "arrival_id": "SGN", "hotel_query": "Ho Chi Minh City, Vietnam"}
+  ],
+  "Nature": [
+    {"name": "Chiang Rai", "country": "Thailand", "arrival_id": "CEI", "hotel_query": "Chiang Rai, Thailand"},
+    {"name": "Siem Reap", "country": "Cambodia", "arrival_id": "REP", "hotel_query": "Siem Reap, Cambodia"},
+    {"name": "Ubud", "country": "Indonesia", "arrival_id": "DPS", "hotel_query": "Ubud, Bali"},
+    {"name": "Munnar", "country": "India", "arrival_id": "COK", "hotel_query": "Munnar, India"},
+    {"name": "Coorg", "country": "India", "arrival_id": "IXM", "hotel_query": "Coorg, India"},
+    {"name": "Kandy", "country": "Sri Lanka", "arrival_id": "CMB", "hotel_query": "Kandy, Sri Lanka"},
+    {"name": "Sapa", "country": "Vietnam", "arrival_id": "HAN", "hotel_query": "Sapa, Vietnam"},
+    {"name": "Bandung", "country": "Indonesia", "arrival_id": "BDO", "hotel_query": "Bandung, Indonesia"}
+  ]
+}
