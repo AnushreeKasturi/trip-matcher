@@ -30,6 +30,12 @@ from scoring import score_destinations, build_considered
 BASE_DIR = Path(__file__).parent
 DESTINATIONS = json.loads((BASE_DIR / "destinations.json").read_text())
 
+REGION_FILTERS = {
+    "india": lambda d: d["country"] == "India",
+    "international": lambda d: d["country"] != "India",
+    "both": lambda d: True,
+}
+
 BATCH_SIZE = 5  # concurrent destination lookups at a time (stays under the 50/hr cap)
 
 app = FastAPI(title="Trip Matcher")
@@ -51,6 +57,8 @@ class SearchRequest(BaseModel):
         None, description="YYYY-MM-DD; defaults to 30 days from today"
     )
     currency: str = "INR"
+    region: str = Field("both", description="india | international | both")
+    flight_pref: str = Field("cheapest", description="cheapest | nonstop")
 
 
 class ResultCard(BaseModel):
@@ -61,8 +69,20 @@ class ResultCard(BaseModel):
     breakdown: str
     flight_type: str
     flight_duration: str
-    booking_options: list
     reason: str
+    flight_price: float
+    hotel_nightly: float
+    nights: int
+    arrival_id: str
+    outbound_date: str
+    return_date: str
+    airline: Optional[str] = None
+    airline_logo: Optional[str] = None
+    price_insights: Optional[dict] = None  # Google Flights' low/typical/high verdict for this route
+    nonstop_unavailable: bool = False  # asked for nonstop, but the route has none
+    hotel_picks: list = []  # concrete hotels at or under the budgeted nightly rate
+    flight_links: list = []  # [{"site", "url"}] pre-filled searches on booking sites
+    hotel_links: list = []
 
 
 class ConsideredDestination(BaseModel):
@@ -100,7 +120,24 @@ async def search(req: SearchRequest):
     if req.vibe not in DESTINATIONS:
         raise HTTPException(status_code=400, detail=f"Unknown vibe '{req.vibe}'")
 
-    candidates = DESTINATIONS[req.vibe]
+    if req.flight_pref not in ("cheapest", "nonstop"):
+        raise HTTPException(status_code=400, detail=f"Unknown flight preference '{req.flight_pref}'")
+
+    if req.region not in REGION_FILTERS:
+        raise HTTPException(status_code=400, detail=f"Unknown region '{req.region}'")
+
+    departure_id = req.departure_id.strip().upper()
+    in_region = REGION_FILTERS[req.region]
+    candidates = [
+        d for d in DESTINATIONS[req.vibe]
+        # Never "fly" to the airport you're already at.
+        if in_region(d) and d["arrival_id"] != departure_id
+    ]
+    if not candidates:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No {req.vibe.lower()} destinations to search for that region — try 'Both'.",
+        )
 
     outbound = req.outbound_date or (date.today() + timedelta(days=30)).isoformat()
     return_date = (
@@ -115,17 +152,20 @@ async def search(req: SearchRequest):
                 fetch_destination_data(
                     client,
                     dest,
-                    req.departure_id,
+                    departure_id,
                     outbound,
                     return_date,
                     req.currency,
+                    req.flight_pref,
                 )
                 for dest in batch
             ])
             results_raw.extend(batch_results)
 
     skipped = [d["name"] for d in results_raw if d.get("error")]
-    top3 = score_destinations(results_raw, req.budget, req.nights, req.currency)
+    top3 = score_destinations(
+        results_raw, req.budget, req.nights, departure_id, outbound, return_date, req.currency
+    )
     considered = build_considered(results_raw, req.budget, req.nights)
 
     # If every single destination errored out (bad API key, rate limit, outage),

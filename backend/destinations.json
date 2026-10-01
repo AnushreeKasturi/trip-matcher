@@ -1,5 +1,7 @@
 {
   "Beach": [
+    {"name": "Andaman Islands", "country": "India", "arrival_id": "IXZ", "hotel_query": "Port Blair, Andaman and Nicobar Islands"},
+    {"name": "Kovalam", "country": "India", "arrival_id": "TRV", "hotel_query": "Kovalam, Kerala, India"},
     {"name": "Goa", "country": "India", "arrival_id": "GOI", "hotel_query": "Goa, India"},
     {"name": "Bali", "country": "Indonesia", "arrival_id": "DPS", "hotel_query": "Bali, Indonesia"},
     {"name": "Phuket", "country": "Thailand", "arrival_id": "HKT", "hotel_query": "Phuket, Thailand"},
@@ -23,6 +25,13 @@
     {"name": "Chiang Mai", "country": "Thailand", "arrival_id": "CNX", "hotel_query": "Chiang Mai, Thailand"}
   ],
   "City": [
+    {"name": "Mumbai", "country": "India", "arrival_id": "BOM", "hotel_query": "Mumbai, India"},
+    {"name": "Delhi", "country": "India", "arrival_id": "DEL", "hotel_query": "New Delhi, India"},
+    {"name": "Jaipur", "country": "India", "arrival_id": "JAI", "hotel_query": "Jaipur, India"},
+    {"name": "Udaipur", "country": "India", "arrival_id": "UDR", "hotel_query": "Udaipur, India"},
+    {"name": "Kolkata", "country": "India", "arrival_id": "CCU", "hotel_query": "Kolkata, India"},
+    {"name": "Hyderabad", "country": "India", "arrival_id": "HYD", "hotel_query": "Hyderabad, India"},
+    {"name": "Varanasi", "country": "India", "arrival_id": "VNS", "hotel_query": "Varanasi, India"},
     {"name": "Singapore", "country": "Singapore", "arrival_id": "SIN", "hotel_query": "Singapore"},
     {"name": "Dubai", "country": "UAE", "arrival_id": "DXB", "hotel_query": "Dubai, UAE"},
     {"name": "Bangkok", "country": "Thailand", "arrival_id": "BKK", "hotel_query": "Bangkok, Thailand"},
@@ -34,11 +43,12 @@
     {"name": "Ho Chi Minh City", "country": "Vietnam", "arrival_id": "SGN", "hotel_query": "Ho Chi Minh City, Vietnam"}
   ],
   "Nature": [
+    {"name": "Rishikesh", "country": "India", "arrival_id": "DED", "hotel_query": "Rishikesh, India"},
     {"name": "Chiang Rai", "country": "Thailand", "arrival_id": "CEI", "hotel_query": "Chiang Rai, Thailand"},
     {"name": "Siem Reap", "country": "Cambodia", "arrival_id": "REP", "hotel_query": "Siem Reap, Cambodia"},
     {"name": "Ubud", "country": "Indonesia", "arrival_id": "DPS", "hotel_query": "Ubud, Bali"},
     {"name": "Munnar", "country": "India", "arrival_id": "COK", "hotel_query": "Munnar, India"},
-    {"name": "Coorg", "country": "India", "arrival_id": "IXM", "hotel_query": "Coorg, India"},
+    {"name": "Coorg", "country": "India", "arrival_id": "IXE", "hotel_query": "Coorg, India"},
     {"name": "Kandy", "country": "Sri Lanka", "arrival_id": "CMB", "hotel_query": "Kandy, Sri Lanka"},
     {"name": "Sapa", "country": "Vietnam", "arrival_id": "HAN", "hotel_query": "Sapa, Vietnam"},
     {"name": "Bandung", "country": "Indonesia", "arrival_id": "BDO", "hotel_query": "Bandung, Indonesia"}

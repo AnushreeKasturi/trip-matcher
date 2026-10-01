@@ -13,6 +13,8 @@ Returns the top 3 destinations as result cards ready for the API response.
 
 from typing import Optional
 
+from booking_links import flight_links, hotel_links
+
 CURRENCY_SYMBOLS = {"INR": "₹", "USD": "$", "EUR": "€", "GBP": "£"}
 
 
@@ -31,7 +33,7 @@ def _reason(destination: dict, savings: float, is_shortest: bool, symbol: str) -
     flight_type = destination["flights"]["type"]
     bits = []
     if savings > 0:
-        bits.append(f"{symbol}{savings:.0f} under budget")
+        bits.append(f"{symbol}{savings:,.0f} under budget")
     if flight_type == "Nonstop":
         bits.append("a direct flight")
     if is_shortest:
@@ -75,10 +77,19 @@ def build_considered(destinations: list, budget: float, nights: int) -> list:
     return rows
 
 
-def score_destinations(destinations: list, budget: float, nights: int, currency: str = "INR") -> list:
+def score_destinations(
+    destinations: list,
+    budget: float,
+    nights: int,
+    departure_id: str,
+    outbound: str,
+    return_date: str,
+    currency: str = "INR",
+) -> list:
     """
     destinations: list of dicts from serpapi_client.fetch_destination_data
     (each with "flights", "hotels", "error" keys already populated).
+    departure_id/outbound/return_date are only used to build booking links.
 
     Returns up to 3 result-card dicts, ranked best first.
     """
@@ -133,8 +144,29 @@ def score_destinations(destinations: list, budget: float, nights: int, currency:
             "flight_duration": _format_duration(
                 None if dest["total_duration"] == float("inf") else dest["total_duration"]
             ),
-            "booking_options": dest["flights"]["booking_options"],
             "reason": _reason(dest, dest["savings"], is_shortest, symbol),
+            "flight_price": dest["flight_price"],
+            "hotel_nightly": dest["hotel_nightly"],
+            "nights": nights,
+            "arrival_id": dest["arrival_id"],
+            "outbound_date": outbound,
+            "return_date": return_date,
+            "airline": dest["flights"]["airline"],
+            "airline_logo": dest["flights"]["airline_logo"],
+            "price_insights": dest["flights"]["price_insights"],
+            "nonstop_unavailable": dest["flights"]["nonstop_unavailable"],
+            "hotel_picks": dest["hotels"]["picks"],
+            "flight_links": flight_links(
+                departure_id,
+                dest["arrival_id"],
+                outbound,
+                return_date,
+                domestic=dest["country"] == "India",
+                google_flights_url=dest["flights"]["google_flights_url"],
+            ),
+            "hotel_links": hotel_links(
+                dest["hotel_query"], outbound, return_date, dest["hotels"]["google_hotels_url"]
+            ),
         })
 
     return results

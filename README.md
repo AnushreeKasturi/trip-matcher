@@ -1,33 +1,75 @@
 # Trip Matcher
 
-Hackathon submission — SerpApi Travel & Local Discovery track.
+Hackathon submission — SerpApi India Hackathon, Travel & Local Discovery track.
 
-You give it a budget, trip length, and a vibe (Beach / Mountains / City / Nature).
-It searches real flight and hotel prices across a curated shortlist of
-destinations for that vibe via SerpApi, filters out anything over budget,
-and returns the top 3 ranked by how much money they save you (ties broken
-by shorter total flight time).
+**Most travel sites make you pick a destination first, then tell you what it
+costs. Trip Matcher works the other way round: tell it your budget, how many
+nights you have, and the kind of trip you're in the mood for — it tells you
+where you can actually afford to go, and gets you to the booking page in one
+click.**
+
+You pick a vibe (Beach / Mountains / City / Nature), choose India,
+International or both, and set a budget. It pulls live flight and hotel prices
+for a curated shortlist of destinations via SerpApi, drops anything over
+budget, and returns the top 3 ranked by how much money they leave you (ties
+broken by shorter flight time) — each with an airline, real hotel picks, a
+"is this a good price?" verdict, and pre-filled booking links.
+
+## What you get for each trip
+
+- **Total cost vs your budget** — flight + hotel nights, with a bar showing
+  how much of the budget it uses.
+- **The flight** — airline, nonstop or not, duration, outbound/return legs.
+  Choose **Cheapest flight** or **Nonstop only**; both come from the same
+  API response, so switching costs no quota.
+- **Price insight** — Google Flights' verdict on whether this route is
+  cheap, typical or expensive right now, plus its usual price range.
+- **Three real hotels** at or under the nightly rate we budgeted with, with
+  photos, ratings and links to the hotel.
+- **One-click booking** — MakeMyTrip, Skyscanner and Google Flights for the
+  flight; Booking.com and Google Hotels for the stay — all pre-filled with
+  the same route and dates.
+- **Compare all** — every destination that was priced, how far over or under
+  budget it came in, so "nothing fits" still tells you how close you were.
+
+## How it uses SerpApi
+
+Each destination costs exactly two SerpApi calls, and the app squeezes as
+much out of each response as it can:
+
+| Engine | What we use from the response |
+|---|---|
+| `google_flights` | Cheapest round trip across `best_flights` + `other_flights`, airline name and logo, stops, duration, `price_insights` (low/typical/high + typical range), and the Google Flights link |
+| `google_hotels` | Median nightly rate of the first 10 properties (used for the total), the top-rated properties at or under that rate, their photos/ratings/links, and the Google Hotels link |
+
+SerpApi's `booking_options` need an extra call per flight (via
+`booking_token`), so booking links are built from the search parameters
+instead — see `backend/booking_links.py`.
 
 ## How it works
 
-- `backend/destinations.json` holds a static, curated list of 8–10
-  destinations per vibe tag. This is deliberate — it bounds the number of
+- `backend/destinations.json` holds a curated list of 9–16 destinations per
+  vibe, in India and abroad. This is deliberate — it bounds the number of
   API calls per search instead of dynamically discovering destinations.
-- For each candidate destination, the backend fires one Google Flights call
-  and one Google Hotels call (via SerpApi), concurrently, in batches of 5,
-  to stay under SerpApi's free-tier rate limit of 50 requests/hour.
-- Results are cached in memory for the life of the server process, so
-  repeated searches with the same dates don't burn extra API calls.
-- `backend/scoring.py` computes `total_cost = flight_price + (avg_hotel_price
+  The **India / International / Both** filter picks which ones are searched,
+  and your own departure airport is always skipped.
+- For each destination, the backend fires the Google Flights and Google
+  Hotels calls concurrently, in batches of 5 destinations at a time.
+- **Raw SerpApi responses are cached on disk** (`backend/.cache/`) for
+  `CACHE_TTL_HOURS` (default 72), so a search that's been run once costs no
+  quota again — even after a server restart. Useful on the free tier's
+  250 searches/month.
+- `backend/scoring.py` computes `total_cost = flight_price + (median_hotel_price
   * nights)`, discards anything over budget, and ranks what's left by
   savings (then by flight duration).
 - Destinations where either API call fails (timeout, no results, bad route)
   are skipped, not treated as a hard error — the frontend shows which ones
-  were skipped rather than failing the whole search.
+  were skipped. If *every* lookup fails, it says so plainly (usually a bad
+  key or exhausted quota) rather than pretending nothing fit the budget.
 
 ## Setup
 
-**Requirements:** Python 3.10+, a SerpApi key ([free tier signup](https://serpapi.com/users/sign_up)).
+**Requirements:** Python 3.9+, a SerpApi key ([free tier signup](https://serpapi.com/users/sign_up)).
 
 ```bash
 cd backend
@@ -46,19 +88,26 @@ uvicorn main:app --reload --port 8000
 Open **http://localhost:8000** — the backend serves the frontend directly,
 so there's nothing else to start.
 
+## Quota cost
+
+A search costs 2 calls per destination searched, e.g. City + India is
+7 destinations = 14 calls; City + Both is 16 = 32 calls. Repeating a
+search (same departure, dates, nights, vibe and region) within the cache
+window costs nothing.
+
 ## Project structure
 
 ```
 /trip-matcher
   /backend
-    main.py             # FastAPI app, routes
-    serpapi_client.py    # wraps flights + hotels calls (async, cached)
+    main.py              # FastAPI app, routes, region filter
+    serpapi_client.py    # flights + hotels calls (async, disk-cached)
     scoring.py           # scoring/ranking logic
+    booking_links.py     # pre-filled MakeMyTrip / Skyscanner / Booking.com links
     destinations.json    # curated candidate list
     requirements.txt
   /frontend
-    index.html
-    app.js
+    index.html           # the whole UI (no build step)
   .env.example
   README.md
 ```
@@ -71,31 +120,44 @@ so there's nothing else to start.
 ```json
 {
   "departure_id": "BLR",
-  "budget": 800,
-  "nights": 6,
-  "vibe": "Beach",
-  "outbound_date": "2026-11-10"
+  "budget": 60000,
+  "nights": 4,
+  "vibe": "City",
+  "region": "india",
+  "flight_pref": "nonstop",
+  "outbound_date": "2026-11-10",
+  "currency": "INR"
 }
 ```
-→ top 3 ranked results, plus a list of any destinations skipped due to a
-failed API call.
+`region` is `india`, `international` or `both` (default). `flight_pref` is
+`cheapest` (default) or `nonstop` — nonstop falls back to the cheapest
+option with stops when a route has no nonstop flights. `outbound_date` is
+optional (defaults to 30 days out).
 
-## Known limitations / stretch goals
+→ up to 3 ranked results (with flight, hotel picks, price insights and
+booking links), every destination that was priced, and any that were
+skipped.
 
-- No auth, no database — single-session, in-memory cache only.
-- Destination photos aren't wired up yet (static image mapping was scoped
-  as a nice-to-have, not core).
-- `booking_options` are passed through from SerpApi's Flights response
-  when present, surfaced as a "Book this flight" link on each card.
-- Not yet built: budget-slider client-side re-ranking, and a
-  departure-continent picker to swap which curated destination list is used.
+## Known limitations
+
+- Hotel cost uses the median of the first 10 Google Hotels results, so
+  cities where Google lists many upscale properties come out pricier than
+  a budget traveller would pay.
+- Budget is per person; hotel price is per room.
+- MakeMyTrip links treat a trip as domestic when the destination is in
+  India, i.e. they assume you're flying from India.
+- No auth, no database.
 
 ## Demo script (under 3 minutes)
 
+Run the demo search once beforehand so it's served from the cache.
+
 1. (10s) "Instead of picking a destination first, you tell us your constraints."
-2. (20s) Fill form live: $800 budget, 6 nights, Bengaluru departure, Beach vibe.
-3. (20s) Show results populating — 3 ranked cards with cost breakdowns.
-4. (15s) Click a card, show the "why" reasoning.
-5. (15s) Quick flash of code — the parallel Flights + Hotels calls, showing
-   it's real SerpApi data, not mocked.
-6. (10s) Close: "Cheaper, faster trip discovery without 20 browser tabs open."
+2. (20s) Fill the form live: BLR, ₹60,000, 4 nights, City, India.
+3. (20s) Results — 3 ranked cards with cost, budget bar and price insight.
+4. (20s) Show the hotel picks, then click "Book on MakeMyTrip" — it opens
+   with the route and dates already filled in.
+5. (15s) Open "Compare all" — how close the over-budget cities came.
+6. (15s) Quick flash of `serpapi_client.py` — the parallel Flights + Hotels
+   calls, showing it's real SerpApi data, not mocked.
+7. (10s) Close: "Budget-first trip discovery, from idea to booking page, without 20 tabs open."
