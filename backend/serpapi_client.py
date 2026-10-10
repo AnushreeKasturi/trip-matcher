@@ -15,6 +15,7 @@ import os
 import json
 import time
 import asyncio
+import statistics
 from pathlib import Path
 
 import httpx
@@ -26,6 +27,13 @@ SERPAPI_KEY = os.environ.get("SERPAPI_KEY", "")
 # restarts — the free tier is only 250 searches/month, so a search that has
 # been run once should never cost quota again while its prices are still
 # fresh. Keyed by the params that actually affect the result.
+MIN_HOTELS_FOR_BENCHMARK = 4  # fewer actual hotels than this -> count rentals too
+MIN_REVIEWS_TO_TRUST = 20  # hotel picks with fewer reviews rank below those with more
+# With prefer="cheapest", take a nonstop over a cheaper connecting flight if
+# it costs at most this much more — nobody wants a Goa layover on BLR->BOM
+# to save a few hundred rupees.
+NONSTOP_TOLERANCE = 0.15
+
 CACHE_FILE = Path(__file__).parent / ".cache" / "serpapi_cache.json"
 CACHE_TTL_SECONDS = float(os.environ.get("CACHE_TTL_HOURS", "72")) * 3600
 
@@ -100,6 +108,8 @@ async def get_flights(
     """
     Calls engine=google_flights. prefer="nonstop" picks the cheapest nonstop
     option, falling back to the cheapest overall when the route has none.
+    prefer="cheapest" still takes a nonstop if it's within NONSTOP_TOLERANCE
+    of the cheapest fare.
     Either way it's the same API call, so switching costs no quota.
     Returns a normalized dict:
         {"price": float | None, "total_duration": int | None, "type": str,
@@ -138,10 +148,15 @@ async def get_flights(
             nonstop_unavailable = True
 
     # Cheapest first; at equal price prefer fewer legs, then shorter trips.
-    cheapest = min(
-        candidates,
-        key=lambda f: (f["price"], len(f.get("flights", [])), f.get("total_duration") or float("inf")),
-    )
+    by_price = lambda f: (f["price"], len(f.get("flights", [])), f.get("total_duration") or float("inf"))
+    cheapest = min(candidates, key=by_price)
+    if prefer == "cheapest" and len(cheapest.get("flights", [])) > 1:
+        nonstop_close = [
+            f for f in candidates
+            if len(f.get("flights", [])) <= 1 and f["price"] <= cheapest["price"] * (1 + NONSTOP_TOLERANCE)
+        ]
+        if nonstop_close:
+            cheapest = min(nonstop_close, key=by_price)
     flights_legs = cheapest.get("flights", [])
     layovers = cheapest.get("layovers", [])
 
@@ -188,8 +203,8 @@ async def get_hotels(
 ) -> dict:
     """
     Calls engine=google_hotels. Returns:
-        {"avg_price_per_night": float,   # median rate_per_night of the first ~10 properties
-         "picks": list,                  # up to 3 well-rated properties near that median
+        {"avg_price_per_night": float,   # 25th-percentile nightly rate among the hotels listed
+         "picks": list,                  # up to 3 well-rated hotels at or under that rate
          "google_hotels_url": str | None}
     """
     params = {
@@ -202,42 +217,50 @@ async def get_hotels(
     }
     data = await _get(client, params)
 
-    properties = data.get("properties", [])[:10]
-    nightly_prices = []
-    for p in properties:
-        rate = p.get("rate_per_night", {})
-        # SerpApi gives this as either a formatted string or an "extracted_lowest" int
-        val = rate.get("extracted_lowest")
-        if val:  # Google sometimes lists a property at 0 — not a real rate
-            nightly_prices.append(val)
+    # Google returns properties by relevance, not price, and often mixes
+    # 5-star hotels with whole 2-3BHK vacation rentals. Neither is what a
+    # budget traveller books, so: hotels only (unless a place has too few to
+    # go on), and budget with the 25th-percentile rate — a decent cheaper
+    # hotel — rather than a median dragged up by the luxury ones.
+    properties = [p for p in data.get("properties", []) if _nightly_rate(p)]
+    hotels = [p for p in properties if p.get("type") == "hotel"]
+    if len(hotels) >= MIN_HOTELS_FOR_BENCHMARK:
+        properties = hotels
 
-    if not nightly_prices:
+    if not properties:
         raise SerpApiError(f"No hotel rates found for '{query}'")
 
-    nightly_prices.sort()
-    n = len(nightly_prices)
-    median = (
-        nightly_prices[n // 2]
-        if n % 2 == 1
-        else (nightly_prices[n // 2 - 1] + nightly_prices[n // 2]) / 2
-    )
+    nightly = _lower_quartile([_nightly_rate(p) for p in properties])
     return {
-        "avg_price_per_night": median,
-        "picks": _hotel_picks(properties, median),
+        "avg_price_per_night": nightly,
+        "picks": _hotel_picks(properties, nightly),
         "google_hotels_url": data.get("search_metadata", {}).get("google_hotels_url"),
     }
 
 
-def _hotel_picks(properties: list, median: float) -> list:
+def _nightly_rate(prop: dict):
+    # Google sometimes lists a property at 0 — not a real rate
+    return prop.get("rate_per_night", {}).get("extracted_lowest") or None
+
+
+def _lower_quartile(prices: list) -> float:
+    prices = sorted(prices)
+    if len(prices) < 4:
+        return prices[0]
+    return statistics.quantiles(prices, n=4)[0]
+
+
+def _hotel_picks(properties: list, nightly: float) -> list:
     """
     Up to 3 concrete hotels the user could actually book, priced at or below
-    the median we budgeted with (so the total shown stays honest), best
-    rated first.
+    the nightly rate we budgeted with (so the total shown stays honest).
+    Hotels with enough reviews to trust come first, then by rating — so a
+    5.0 from 5 reviews doesn't outrank a 4.4 from 2,000.
     """
     picks = []
     for p in properties:
-        price = p.get("rate_per_night", {}).get("extracted_lowest")
-        if not price or price > median:
+        price = _nightly_rate(p)
+        if not price or price > nightly:
             continue
         images = p.get("images") or []
         picks.append({
@@ -247,9 +270,10 @@ def _hotel_picks(properties: list, median: float) -> list:
             "reviews": p.get("reviews"),
             "hotel_class": p.get("hotel_class"),
             "image": images[0].get("thumbnail") if images else None,
+            "image_large": images[0].get("original_image") if images else None,
             "link": p.get("link"),
         })
-    picks.sort(key=lambda h: (h["rating"] or 0), reverse=True)
+    picks.sort(key=lambda h: ((h["reviews"] or 0) >= MIN_REVIEWS_TO_TRUST, h["rating"] or 0), reverse=True)
     return picks[:3]
 
 

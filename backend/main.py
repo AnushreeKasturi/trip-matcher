@@ -76,6 +76,8 @@ class ResultCard(BaseModel):
     arrival_id: str
     outbound_date: str
     return_date: str
+    photo: Optional[str] = None  # curated high-res cover photo (Wikimedia Commons)
+    photo_page: Optional[str] = None  # its Commons file page, for attribution
     airline: Optional[str] = None
     airline_logo: Optional[str] = None
     price_insights: Optional[dict] = None  # Google Flights' low/typical/high verdict for this route

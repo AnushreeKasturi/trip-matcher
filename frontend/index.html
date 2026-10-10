@@ -343,6 +343,11 @@
     background: linear-gradient(180deg, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.65) 100%);
   }
   .card-cover > * { position: relative; }
+  .card-cover > .photo-credit {
+    position: absolute; right: 0.6rem; bottom: 0.4rem;
+    font-size: 0.65rem; color: rgba(255,255,255,0.75); text-decoration: none;
+  }
+  .card-cover > .photo-credit:hover { color: white; text-decoration: underline; }
   .rank-badge {
     align-self: flex-start;
     font-size: 0.7rem; font-weight: 700;
@@ -988,7 +993,14 @@ function renderResults(data, search) {
   const cover = vibeStyle(vibe).bg;
 
   const cardsHtml = results.map((r, i) => {
-    const photos = (r.hotel_picks || []).map((h) => safeUrl(h.image)).filter(Boolean);
+    // Cover photo, best first: the curated destination photo, then full-size
+    // hotel photos, then hotel thumbnails. The vibe gradient is the last resort.
+    const picks = r.hotel_picks || [];
+    const photos = [
+      safeUrl(r.photo),
+      ...picks.map((h) => safeUrl(h.image_large)),
+      ...picks.map((h) => safeUrl(h.image)),
+    ].filter(Boolean);
     const pct = Math.min(100, (r.total_cost / budget) * 100);
 
     return `
@@ -999,6 +1011,7 @@ function renderResults(data, search) {
           <h2>${escapeHtml(r.name)}</h2>
           <div class="country">${escapeHtml(r.country)} · ${escapeHtml(r.arrival_id)}</div>
         </div>
+        ${r.photo && r.photo_page ? `<a class="photo-credit" href="${escapeAttr(safeUrl(r.photo_page))}" target="_blank" rel="noopener" data-for="${escapeAttr(safeUrl(r.photo))}" hidden>Photo: Wikimedia Commons</a>` : ""}
       </div>
 
       <div class="card-body">
@@ -1064,12 +1077,17 @@ function renderResults(data, search) {
   });
 }
 
-// Some Google hotel photos 404, so try each one and use the first that
-// actually loads; the vibe gradient stays as the fallback.
+// Some photos 404 or are blocked, so try each one and use the first that
+// actually loads; the vibe gradient stays as the fallback. The Commons
+// credit only shows if it's the Commons photo that ended up on the cover.
 function setFirstLoadingPhoto(el, urls, fallbackBg) {
   if (!urls.length) return;
   const img = new Image();
-  img.onload = () => { el.style.background = `url('${cssUrl(urls[0])}') center/cover, ${fallbackBg}`; };
+  img.onload = () => {
+    el.style.background = `url('${cssUrl(urls[0])}') center/cover, ${fallbackBg}`;
+    const credit = el.querySelector(".photo-credit");
+    if (credit && credit.dataset.for === urls[0]) credit.hidden = false;
+  };
   img.onerror = () => setFirstLoadingPhoto(el, urls.slice(1), fallbackBg);
   img.src = urls[0];
 }
@@ -1109,7 +1127,7 @@ function renderHotelPicks(picks, money) {
     ].filter(Boolean).join(" · ");
     return `
       <${tag} class="hotel-pick"${attrs}>
-        ${h.image ? `<img src="${escapeAttr(safeUrl(h.image))}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'ph'}))" />` : `<div class="ph"></div>`}
+        ${h.image || h.image_large ? `<img src="${escapeAttr(safeUrl(h.image || h.image_large))}" data-fallback="${escapeAttr(safeUrl(h.image_large))}" alt="" loading="lazy" onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) this.src = this.dataset.fallback; else this.replaceWith(Object.assign(document.createElement('div'), {className: 'ph'}))" />` : `<div class="ph"></div>`}
         <div>
           <div class="hp-name">${escapeHtml(h.name)}</div>
           <div class="hp-meta">${meta}</div>

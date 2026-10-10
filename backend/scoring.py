@@ -1,7 +1,7 @@
 """
 Scoring/ranking logic for Trip Matcher.
 
-total_cost = flight_price + (avg_hotel_price_per_night * nights)
+total_cost = flight_price + (hotel_nightly_rate * nights)
 if total_cost > budget: discard
 else:
     savings = budget - total_cost
@@ -151,6 +151,8 @@ def score_destinations(
             "arrival_id": dest["arrival_id"],
             "outbound_date": outbound,
             "return_date": return_date,
+            "photo": dest.get("photo"),
+            "photo_page": dest.get("photo_page"),
             "airline": dest["flights"]["airline"],
             "airline_logo": dest["flights"]["airline_logo"],
             "price_insights": dest["flights"]["price_insights"],

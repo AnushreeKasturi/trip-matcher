@@ -21,7 +21,8 @@ broken by shorter flight time) — each with an airline, real hotel picks, a
   how much of the budget it uses.
 - **The flight** — airline, nonstop or not, duration, outbound/return legs.
   Choose **Cheapest flight** or **Nonstop only**; both come from the same
-  API response, so switching costs no quota.
+  API response, so switching costs no quota. "Cheapest" still picks a
+  nonstop when it's within 15% of the cheapest connecting fare.
 - **Price insight** — Google Flights' verdict on whether this route is
   cheap, typical or expensive right now, plus its usual price range.
 - **Three real hotels** at or under the nightly rate we budgeted with, with
@@ -39,8 +40,8 @@ much out of each response as it can:
 
 | Engine | What we use from the response |
 |---|---|
-| `google_flights` | Cheapest round trip across `best_flights` + `other_flights`, airline name and logo, stops, duration, `price_insights` (low/typical/high + typical range), and the Google Flights link |
-| `google_hotels` | Median nightly rate of the first 10 properties (used for the total), the top-rated properties at or under that rate, their photos/ratings/links, and the Google Hotels link |
+| `google_flights` | Cheapest round trip (or a nonstop within 15% of it) across `best_flights` + `other_flights`, airline name and logo, stops, duration, `price_insights` (low/typical/high + typical range), and the Google Flights link |
+| `google_hotels` | 25th-percentile nightly rate among the hotels listed, skipping vacation rentals (used for the total), well-reviewed hotels at or under that rate, their photos/ratings/links, and the Google Hotels link |
 
 SerpApi's `booking_options` need an extra call per flight (via
 `booking_token`), so booking links are built from the search parameters
@@ -53,13 +54,17 @@ instead — see `backend/booking_links.py`.
   API calls per search instead of dynamically discovering destinations.
   The **India / International / Both** filter picks which ones are searched,
   and your own departure airport is always skipped.
+- Each destination also has a hand-picked cover photo (1280px, from
+  Wikimedia Commons, credited on the card). If it fails to load, the card
+  falls back to the hotels' full-size photos, then their thumbnails, then a
+  gradient for the vibe.
 - For each destination, the backend fires the Google Flights and Google
   Hotels calls concurrently, in batches of 5 destinations at a time.
 - **Raw SerpApi responses are cached on disk** (`backend/.cache/`) for
   `CACHE_TTL_HOURS` (default 72), so a search that's been run once costs no
   quota again — even after a server restart. Useful on the free tier's
   250 searches/month.
-- `backend/scoring.py` computes `total_cost = flight_price + (median_hotel_price
+- `backend/scoring.py` computes `total_cost = flight_price + (hotel_nightly_rate
   * nights)`, discards anything over budget, and ranks what's left by
   savings (then by flight duration).
 - Destinations where either API call fails (timeout, no results, bad route)
@@ -82,7 +87,7 @@ cp ../.env.example ../.env
 
 ```bash
 cd backend
-uvicorn main:app --reload --port 8000
+python3 -m uvicorn main:app --reload --port 8000
 ```
 
 Open **http://localhost:8000** — the backend serves the frontend directly,
@@ -140,9 +145,11 @@ skipped.
 
 ## Known limitations
 
-- Hotel cost uses the median of the first 10 Google Hotels results, so
-  cities where Google lists many upscale properties come out pricier than
-  a budget traveller would pay.
+- Hotel cost is the 25th-percentile rate of the hotels Google lists (rentals
+  excluded). Where Google lists mostly upscale hotels (e.g. New Delhi) it
+  still comes out higher than a budget traveller would pay.
+- Requests use SerpApi's default `gl=us` market, so fares may differ
+  slightly from what Google India or MakeMyTrip shows.
 - Budget is per person; hotel price is per room.
 - MakeMyTrip links treat a trip as domestic when the destination is in
   India, i.e. they assume you're flying from India.
